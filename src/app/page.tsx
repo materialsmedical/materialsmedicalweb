@@ -15,58 +15,93 @@ interface Material {
 // Main component
 export default function Materials() {
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [cart, setCart] = useState<Material[]>(() => {
-    return JSON.parse(localStorage.getItem("cart") || "[]");
-  });
+  
+  // Initialize cart as empty; will be populated in useEffect
+  const [cart, setCart] = useState<Material[]>([]);
+  
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Fetch materials from the API
   useEffect(() => {
     async function fetchMaterials() {
-      const res = await fetch("/api/materials");
-      const data: Material[] = await res.json();
-      setMaterials(data);
+      try {
+        const res = await fetch("/api/materials");
+        if (!res.ok) {
+          throw new Error("Failed to fetch materials");
+        }
+        const data: Material[] = await res.json();
+        setMaterials(data);
+      } catch (error) {
+        console.error("Error fetching materials:", error);
+      }
     }
     fetchMaterials();
   }, []);
 
+  // Load cart from localStorage on component mount
+  useEffect(() => {
+    if (typeof window !== "undefined") { // Ensure window is defined
+      const storedCart = localStorage.getItem("cart");
+      if (storedCart) {
+        try {
+          setCart(JSON.parse(storedCart));
+        } catch (error) {
+          console.error("Error parsing cart from localStorage:", error);
+          setCart([]);
+        }
+      }
+    }
+  }, []);
+
+  // Update localStorage whenever the cart changes
+  useEffect(() => {
+    if (typeof window !== "undefined") { // Ensure window is defined
+      localStorage.setItem("cart", JSON.stringify(cart));
+    }
+  }, [cart]);
+
   // Add item to the cart
   const addToCart = (item: Material) => {
-    const existingCart = [...cart];
-    const itemIndex = existingCart.findIndex(cartItem => cartItem.id === item.id);
+    setCart((prevCart) => {
+      const existingCart = [...prevCart];
+      const itemIndex = existingCart.findIndex(
+        (cartItem) => cartItem.id === item.id
+      );
 
-    if (itemIndex !== -1) {
-      existingCart[itemIndex].quantity! += 1;
-    } else {
-      item.quantity = 1;
-      existingCart.push(item);
-    }
+      if (itemIndex !== -1) {
+        existingCart[itemIndex].quantity! += 1;
+      } else {
+        existingCart.push({ ...item, quantity: 1 });
+      }
 
-    localStorage.setItem("cart", JSON.stringify(existingCart));
-    setCart(existingCart);
+      return existingCart;
+    });
   };
 
   // Remove item from the cart
   const minusToCart = (item: Material) => {
-    const existingCart = [...cart];
-    const itemIndex = existingCart.findIndex(cartItem => cartItem.id === item.id);
+    setCart((prevCart) => {
+      const existingCart = [...prevCart];
+      const itemIndex = existingCart.findIndex(
+        (cartItem) => cartItem.id === item.id
+      );
 
-    if (itemIndex !== -1) {
-      const currentQuantity = existingCart[itemIndex].quantity!;
-      if (currentQuantity > 1) {
-        existingCart[itemIndex].quantity! -= 1;
-      } else {
-        existingCart.splice(itemIndex, 1);
+      if (itemIndex !== -1) {
+        const currentQuantity = existingCart[itemIndex].quantity!;
+        if (currentQuantity > 1) {
+          existingCart[itemIndex].quantity! -= 1;
+        } else {
+          existingCart.splice(itemIndex, 1);
+        }
       }
 
-      localStorage.setItem("cart", JSON.stringify(existingCart));
-      setCart(existingCart);
-    }
+      return existingCart;
+    });
   };
 
   // Check if item is in the cart
   const isInCart = (id: string) => {
-    return cart.find(item => item.id === id);
+    return cart.find((item) => item.id === id);
   };
 
   // Render Search Bar
@@ -79,6 +114,7 @@ export default function Materials() {
         placeholder="Search for..."
         className="w-full rounded-md border-gray-200 py-2.5 pe-10 shadow-sm sm:text-sm focus:outline-none"
         onChange={(e) => setSearchQuery(e.target.value)}
+        value={searchQuery}
       />
     </div>
   );
@@ -94,7 +130,9 @@ export default function Materials() {
         <br />
         <div className="flex items-center border border-gray-300 rounded-xl">
           <button
-            className={`block w-full rounded px-4 py-3 text-sm font-medium text-gray-900 transition ${cartItem ? "bg-red-200 hover:bg-red-300" : "hover:bg-gray-300"}`}
+            className={`block w-full rounded px-4 py-3 text-sm font-medium text-gray-900 transition ${
+              cartItem ? "bg-red-200 hover:bg-red-300" : "hover:bg-gray-300"
+            }`}
             onClick={() => addToCart(material)}
           >
             {cartItem ? `Added (${cartItem.quantity})` : "Add to Cart"}
@@ -102,6 +140,7 @@ export default function Materials() {
           <button
             className="w-[64px] flex justify-center"
             onClick={() => minusToCart(material)}
+            disabled={!cartItem} // Disable if item not in cart
           >
             <Minus />
           </button>
@@ -111,19 +150,24 @@ export default function Materials() {
   };
 
   // Filter materials based on the search query
-  const filteredMaterials = materials.filter(material =>
+  const filteredMaterials = materials.filter((material) =>
     material.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Loading state
-  if (!materials.length)
+  if (!materials.length) {
     return <div className="text-2xl flex justify-center mt-32">Loading...</div>;
+  }
 
   return (
     <div className="flex flex-col items-center">
       <div className="w-full max-w-[512px] p-4">
         {renderSearchBar()}
-        {filteredMaterials.map(renderMaterialCard)}
+        {filteredMaterials.length > 0 ? (
+          filteredMaterials.map(renderMaterialCard)
+        ) : (
+          <div className="text-gray-500">No materials found.</div>
+        )}
       </div>
     </div>
   );
