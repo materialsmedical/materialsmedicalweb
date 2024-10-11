@@ -63,6 +63,7 @@ export default function Page() {
       throw new Error("Failed to submit order.");
     }
 
+    localStorage.removeItem("cart");
     alert("Order submitted successfully!");
   };
 
