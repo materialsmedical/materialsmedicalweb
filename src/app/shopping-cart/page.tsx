@@ -51,25 +51,19 @@ export default function Page() {
     setLoading(true);
     setError(null);
 
-    try {
-      const response = await fetch("/api/order", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(orderData),
-      });
+    const response = await fetch("/api/order", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(orderData),
+    });
 
-      if (!response.ok) {
-        throw new Error("Failed to submit order.");
-      }
-
-      alert("Order submitted successfully!");
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      throw new Error("Failed to submit order.");
     }
+
+    alert("Order submitted successfully!");
   };
 
   return (
